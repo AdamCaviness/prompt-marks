@@ -1,0 +1,31 @@
+name: test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  mod:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pinned Claude test runtime
+        run: npm install --global @anthropic-ai/claude-code@2.1.288
+      - name: Validate the plugin and mod
+        run: claude plugin validate --strict .
+      - name: Run mod tests
+        run: claude plugin test .
+      # Loading the mod once writes .claude-plugin/types, which tsconfig.json
+      # extends. /cost answers locally, so this makes no model call.
+      - name: Write runtime type declarations
+        run: CLAUDE_CONFIG_DIR="$(mktemp -d)" claude -p /cost --plugin-dir . --setting-sources '' --no-session-persistence
+      - name: Check module types
+        run: npx --yes --package typescript@5.9.3 tsc -p .
