@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/AdamCaviness/prompt-marks/compare/v0.2.0...v0.3.0) (2026-10-06)
+
+
+### Features
+
+* add a directory listing icon ([#3](https://github.com/AdamCaviness/prompt-marks/issues/3)) ([cf95306](https://github.com/AdamCaviness/prompt-marks/commit/cf953067c2eab48ebd38ff8e684fd22b42a27a8d))
+
 ## [0.2.0](https://github.com/AdamCaviness/prompt-marks/compare/v0.1.0...v0.2.0) (2026-10-06)
 
 
