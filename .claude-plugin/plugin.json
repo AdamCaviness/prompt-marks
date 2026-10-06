@@ -24,7 +24,7 @@
     "styling": {
       "type": "boolean",
       "title": "Prompt Marks: Styling",
-      "description": "Draws the accent bar and tinted row behind each prompt",
+      "description": "Draws the accent bar, with the ❯ pointer on its first row, and the tinted row behind each prompt",
       "default": true
     },
     "navigation": {

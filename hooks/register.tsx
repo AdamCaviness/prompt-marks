@@ -7,6 +7,9 @@ const DEFAULT_TINT_STRENGTH = 22
 // Assumed terminal backgrounds for the theme family; the tint is mixed over these.
 const DARK_BACKGROUND = '#1e1e1e'
 const LIGHT_BACKGROUND = '#ffffff'
+// The ❯ pointer sits on the accent bar, so it is lightened toward white to read against the accent on any theme.
+const POINTER = '❯'
+const POINTER_LIGHTNESS = 0.65
 // Engine keybinding actions borrowed for navigation: Ctrl+Up/Down and Option(Alt)+Up/Down by default.
 const ACTION_PREVIOUS = 'app:diffFileListUp'
 const ACTION_NEXT = 'app:diffFileListDown'
@@ -16,6 +19,7 @@ const OWN_ORIGINS: ReadonlySet<string> = new Set(['composer', 'bridge'])
 let accent = ACCENTS.Purple!
 let strength = DEFAULT_TINT_STRENGTH
 let tint = blend(accent, DARK_BACKGROUND, DEFAULT_TINT_STRENGTH / 100)
+let pointer = blend('#ffffff', accent, POINTER_LIGHTNESS)
 
 // Prompt message ids in transcript order, as first drawn, and which of them the viewport shows.
 let prompts: string[] = []
@@ -60,6 +64,7 @@ export const register: Register = (on, options) => {
   // A change in /config reloads the module, so options are read once here.
   if (options.enabled === false) return
   accent = resolveAccent(options.accent_color, options.custom_color)
+  pointer = blend('#ffffff', accent, POINTER_LIGHTNESS)
   if (typeof options.tint_strength === 'number') strength = options.tint_strength
 
   on('session.start', async ($, e, next) => {
@@ -90,7 +95,9 @@ export const register: Register = (on, options) => {
     const { Box, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="row" marginTop={1} width="100%">
-        <Box width={1} backgroundColor={accent} />
+        <Box width={1} backgroundColor={accent}>
+          <Text color={pointer} backgroundColor={accent}>{POINTER}</Text>
+        </Box>
         <Box flexGrow={1} paddingX={1} backgroundColor={tint}>
           <Text>{e.props.text}</Text>
         </Box>

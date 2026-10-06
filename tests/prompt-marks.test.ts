@@ -86,6 +86,12 @@ for (const surface of SURFACES) {
     expect(JSON.stringify(await ui.drawn())).toContain('#5b2a86')
   })
 
+  test(`${surface}: the pointer sits on the bar in a lightened accent`, async $ => {
+    const ui = await $.ui.mount({ plugin: 'prompt-marks', surface, component: 'UserMessage', props: prompt('hello') })
+    expect(await ui.find({ type: 'Text', text: '❯' })).toBeDefined()
+    expect(JSON.stringify(await ui.drawn())).toContain(blend('#ffffff', '#5b2a86', 0.65))
+  })
+
   test(`${surface}: the accent comes from userConfig`, { options: { accent_color: 'Custom', custom_color: '#ff0000' } }, async $ => {
     const ui = await $.ui.mount({ plugin: 'prompt-marks', surface, component: 'UserMessage', props: prompt('hi') })
     expect(JSON.stringify(await ui.drawn())).toContain('#ff0000')
