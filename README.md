@@ -17,11 +17,15 @@ It is also listed in [agentic-marketplace](https://github.com/adamcaviness/agent
 
 ## Configure
 
-Run `/config` and find the Prompt Marks rows:
+Run `/config`. Every option's label starts with `Prompt Marks:`, so the rows sort together.
 
 | Option | Default | What it does |
 | :- | :- | :- |
-| `accent_color` | `#5b2a86` | Hex color of the bar. The row tint is mixed from it. |
+| `accent_color` | Purple | Bar color, picked from Purple, Indigo, Blue, Teal, Green, Olive, Amber, Orange, Red, Pink, Slate, or Custom. The row tint is mixed from it. |
+| `custom_color` | `#5b2a86` | Hex color used when `accent_color` is Custom. |
+| `enabled` | on | Turns all of Prompt Marks on or off. Use this instead of disabling the plugin, which also disables agentic-toolkit when it was installed as the toolkit's dependency. |
+| `navigation` | on | Jumps between prompts with the keys below. |
+| `styling` | on | Draws the bar and tinted row behind each prompt. |
 | `tint_strength` | `22` | Percent of the accent mixed into the background behind each prompt. |
 
 Terminals have no transparency, so the tint is the accent mixed into an assumed background: `#1e1e1e` for dark themes, `#ffffff` for light ones.

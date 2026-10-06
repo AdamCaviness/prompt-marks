@@ -1,9 +1,8 @@
 import type { EngineInterface, Register } from 'claude-code'
 
-import { blend, isHex } from './color'
+import { ACCENTS, blend, resolveAccent } from './color'
 import { pickTarget, type Visible } from './navigation'
 
-const DEFAULT_ACCENT = '#5b2a86'
 const DEFAULT_TINT_STRENGTH = 22
 // Assumed terminal backgrounds for the theme family; the tint is mixed over these.
 const DARK_BACKGROUND = '#1e1e1e'
@@ -14,9 +13,9 @@ const ACTION_NEXT = 'app:diffFileListDown'
 // Rows the person typed (or sent from Remote Control); notifications and agent messages stay unstyled.
 const OWN_ORIGINS: ReadonlySet<string> = new Set(['composer', 'bridge'])
 
-let accent = DEFAULT_ACCENT
+let accent = ACCENTS.Purple!
 let strength = DEFAULT_TINT_STRENGTH
-let tint = blend(DEFAULT_ACCENT, DARK_BACKGROUND, DEFAULT_TINT_STRENGTH / 100)
+let tint = blend(accent, DARK_BACKGROUND, DEFAULT_TINT_STRENGTH / 100)
 
 // Prompt message ids in transcript order, as first drawn, and which of them the viewport shows.
 let prompts: string[] = []
@@ -55,7 +54,9 @@ async function jump($: EngineInterface, direction: -1 | 1) {
 }
 
 export const register: Register = (on, options) => {
-  if (typeof options.accent_color === 'string' && isHex(options.accent_color)) accent = options.accent_color
+  // A change in /config reloads the module, so options are read once here.
+  if (options.enabled === false) return
+  accent = resolveAccent(options.accent_color, options.custom_color)
   if (typeof options.tint_strength === 'number') strength = options.tint_strength
 
   on('session.start', async ($, e, next) => {
@@ -75,9 +76,14 @@ export const register: Register = (on, options) => {
     return result
   }).catch(($, e, next) => (next.called ? undefined : next(e)))
 
-  on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
+  const styling = options.styling !== false
+  const navigation = options.navigation !== false
+
+  // Navigation learns the prompts from these rows, so the hook runs when either feature is on.
+  if (styling || navigation) on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
     if (!OWN_ORIGINS.has(e.props.origin.kind)) return next(e)
-    track(e.requestId, e.props.onScreen)
+    if (navigation) track(e.requestId, e.props.onScreen)
+    if (!styling) return next(e)
     const { Box, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="row" marginTop={1} width="100%">
@@ -90,7 +96,7 @@ export const register: Register = (on, options) => {
   })
 
   // Hidden Buttons hold the navigation chords without drawing anything.
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+  if (navigation) on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const theirs = await next(e)
     const { Box, Button } = $.ui.resolve(e)
     return (

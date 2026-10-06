@@ -1,9 +1,17 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { blend } from '../hooks/color'
+import { blend, resolveAccent } from '../hooks/color'
 import { pickTarget, type Visible } from '../hooks/navigation'
 
 const SURFACES = ['terminal', 'desktop'] as const
+const BAND = {
+  hasSurvey: false,
+  isWorking: false,
+  maxRows: 10,
+  bodyColumns: 80,
+  scroll: { offset: 0, bodyRows: 10 },
+  view: {},
+} as const
 const prompt = (text: string, kind: 'composer' | 'task-notification' = 'composer') =>
   ({ text, origin: { kind }, isExpanded: true }) as const
 
@@ -12,6 +20,15 @@ describe('blend', () => {
     expect(blend('#ffffff', '#000000', 0.5)).toBe('#808080')
     expect(blend('#5b2a86', '#1e1e1e', 0)).toBe('#1e1e1e')
     expect(blend('#5b2a86', '#1e1e1e', 1)).toBe('#5b2a86')
+  })
+})
+
+describe('resolveAccent', () => {
+  test('maps a named accent, honors Custom, and falls back to Purple', () => {
+    expect(resolveAccent('Teal', undefined)).toBe('#127a7a')
+    expect(resolveAccent('Custom', 'ff0000')).toBe('#ff0000')
+    expect(resolveAccent('Custom', 'not a color')).toBe('#5b2a86')
+    expect(resolveAccent('Mauve', undefined)).toBe('#5b2a86')
   })
 })
 
@@ -49,7 +66,7 @@ for (const surface of SURFACES) {
     expect(JSON.stringify(await ui.drawn())).toContain('#5b2a86')
   })
 
-  test(`${surface}: the accent comes from userConfig`, { options: { accent_color: '#ff0000' } }, async $ => {
+  test(`${surface}: the accent comes from userConfig`, { options: { accent_color: 'Custom', custom_color: '#ff0000' } }, async $ => {
     const ui = await $.ui.mount({ plugin: 'prompt-marks', surface, component: 'UserMessage', props: prompt('hi') })
     expect(JSON.stringify(await ui.drawn())).toContain('#ff0000')
   })
@@ -66,3 +83,29 @@ for (const surface of SURFACES) {
     expect(JSON.stringify(await ui.drawn())).not.toContain('#5b2a86')
   })
 }
+
+describe('toggles', () => {
+  for (const [name, options] of [
+    ['enabled off', { enabled: false }],
+    ['styling off', { styling: false }],
+  ] as const) {
+    test(`${name}: prompts keep the engine's row`, { options }, async ($, on) => {
+      on('ui.render', { component: 'UserMessage' }, ($, e) => $.ui.resolve(e).Text({ children: ['engine row'] }))
+      const ui = await $.ui.mount({ plugin: 'prompt-marks', surface: 'terminal', component: 'UserMessage', props: prompt('hi') })
+      expect(await ui.find({ type: 'Text', text: 'engine row' })).toBeDefined()
+    })
+  }
+
+  test('navigation on: the band holds the hidden navigation Buttons', async ($, on) => {
+    on('ui.render', { component: 'AbovePrompt' }, ($, e) => $.ui.resolve(e).Text({ children: [''] }))
+    const ui = await $.ui.mount({ plugin: 'prompt-marks', surface: 'terminal', component: 'AbovePrompt', props: BAND })
+    expect(await ui.find({ key: 'previous-prompt' })).toBeDefined()
+    expect(await ui.find({ key: 'next-prompt' })).toBeDefined()
+  })
+
+  test('navigation off: the band draws no navigation Buttons', { options: { navigation: false } }, async ($, on) => {
+    on('ui.render', { component: 'AbovePrompt' }, ($, e) => $.ui.resolve(e).Text({ children: [''] }))
+    const ui = await $.ui.mount({ plugin: 'prompt-marks', surface: 'terminal', component: 'AbovePrompt', props: BAND })
+    expect(await ui.find({ key: 'previous-prompt' })).toBeUndefined()
+  })
+})

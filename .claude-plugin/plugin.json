@@ -3,20 +3,65 @@
   "displayName": "Prompt Marks",
   "version": "0.1.0",
   "description": "Marks your prompts in the transcript with a colored bar and tinted row, and jumps between them with Option+Up and Option+Down",
-  "author": { "name": "Adam Caviness" },
+  "author": {
+    "name": "Adam Caviness"
+  },
   "repository": "https://github.com/adamcaviness/prompt-marks",
   "license": "MIT",
-  "keywords": ["mod", "transcript", "navigation", "prompts"],
+  "keywords": [
+    "mod",
+    "transcript",
+    "navigation",
+    "prompts"
+  ],
   "userConfig": {
+    "enabled": {
+      "type": "boolean",
+      "title": "Prompt Marks: Enabled",
+      "description": "Turns all of Prompt Marks on or off",
+      "default": true
+    },
+    "styling": {
+      "type": "boolean",
+      "title": "Prompt Marks: Styling",
+      "description": "Draws the accent bar and tinted row behind each prompt",
+      "default": true
+    },
+    "navigation": {
+      "type": "boolean",
+      "title": "Prompt Marks: Navigation",
+      "description": "Jumps between prompts with Option or Ctrl plus Up and Down",
+      "default": true
+    },
     "accent_color": {
       "type": "string",
-      "title": "Accent color",
-      "description": "Hex color of the bar left of each prompt; the row tint is mixed from it",
+      "title": "Prompt Marks: Accent color",
+      "description": "Color of the bar left of each prompt; the row tint is mixed from it. Pick Custom to use the custom hex color.",
+      "options": [
+        "Purple",
+        "Indigo",
+        "Blue",
+        "Teal",
+        "Green",
+        "Olive",
+        "Amber",
+        "Orange",
+        "Red",
+        "Pink",
+        "Slate",
+        "Custom"
+      ],
+      "default": "Purple"
+    },
+    "custom_color": {
+      "type": "string",
+      "title": "Prompt Marks: Custom color",
+      "description": "Hex color such as #5b2a86, used when Accent color is Custom",
       "default": "#5b2a86"
     },
     "tint_strength": {
       "type": "number",
-      "title": "Tint strength",
+      "title": "Prompt Marks: Tint strength",
       "description": "Percent of the accent color mixed into the terminal background behind each prompt",
       "default": 22,
       "min": 0,

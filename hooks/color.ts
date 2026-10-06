@@ -20,3 +20,26 @@ export const blend = (color: string, background: string, amount: number): string
   const a = Math.min(1, Math.max(0, amount))
   return toHex(top.map((c, i) => c * a + bottom[i]! * (1 - a)))
 }
+
+// Named accents offered in /config, each dark enough to tint over a dark or light background.
+export const ACCENTS: Readonly<Record<string, string>> = {
+  Purple: '#5b2a86',
+  Indigo: '#3f3d9e',
+  Blue: '#1f5fae',
+  Teal: '#127a7a',
+  Green: '#2e7d32',
+  Olive: '#6b7a1f',
+  Amber: '#b7791f',
+  Orange: '#c2571a',
+  Red: '#b3261e',
+  Pink: '#b0306a',
+  Slate: '#4a5568',
+}
+
+export const CUSTOM = 'Custom'
+
+/** The hex for a named accent, or `custom` when Custom is picked and valid, else Purple. */
+export const resolveAccent = (name: unknown, custom: unknown): string => {
+  if (name === CUSTOM && typeof custom === 'string' && isHex(custom)) return custom.startsWith('#') ? custom : `#${custom}`
+  return (typeof name === 'string' && ACCENTS[name]) || ACCENTS.Purple!
+}
