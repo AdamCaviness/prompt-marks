@@ -25,7 +25,7 @@ Open `/config` and look for the rows starting with `Prompt Marks:`.
 | `custom_color` | `#5b2a86` | Hex color used when `accent_color` is Custom. |
 | `enabled` | on | Turns Prompt Marks off entirely. If agentic-toolkit installed it, use this rather than disabling the plugin, since disabling it also disables the toolkit. |
 | `navigation` | on | Jumps between prompts with the keys below. |
-| `styling` | on | Draws the bar and tinted row behind each prompt. |
+| `styling` | on | Draws the bar, with the ❯ pointer on its first row, and the tinted row behind each prompt. The pointer is the accent lightened toward white. |
 | `tint_strength` | `22` | Percent of the accent mixed into the background behind each prompt. |
 
 Terminals can't do transparency, so the tint is the accent blended with `#1e1e1e` on dark themes and `#ffffff` on light ones. If it looks off against your background, adjust `tint_strength`.
