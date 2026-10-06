@@ -30,6 +30,26 @@ describe('resolveAccent', () => {
     expect(resolveAccent('Custom', 'not a color')).toBe('#5b2a86')
     expect(resolveAccent('Mauve', undefined)).toBe('#5b2a86')
   })
+
+  test('ignores case and surrounding spaces in a typed name', () => {
+    expect(resolveAccent(' teal ', undefined)).toBe('#127a7a')
+    expect(resolveAccent('custom', '#00ff00')).toBe('#00ff00')
+  })
+})
+
+describe('theme changes', () => {
+  test('a theme change passes through unchanged and retints prompts', async ($, on) => {
+    let received: unknown
+    on('config.set', ($, e) => {
+      received = e.value
+      return { value: e.value }
+    })
+    const change = { key: 'theme', value: 'light', previous: 'dark', origin: { kind: 'composer' }, provider: { plugin: 'engine' } }
+    await $.config.set(change as Parameters<typeof $.config.set>[0])
+    expect(received).toBe('light')
+    const ui = await $.ui.mount({ plugin: 'prompt-marks', surface: 'terminal', component: 'UserMessage', props: prompt('hi') })
+    expect(JSON.stringify(await ui.drawn())).toContain(blend('#5b2a86', '#ffffff', 0.22))
+  })
 })
 
 describe('pickTarget', () => {

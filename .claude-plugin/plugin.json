@@ -36,21 +36,7 @@
     "accent_color": {
       "type": "string",
       "title": "Prompt Marks: Accent color",
-      "description": "Color of the bar left of each prompt; the row tint is mixed from it. Pick Custom to use the custom hex color.",
-      "options": [
-        "Purple",
-        "Indigo",
-        "Blue",
-        "Teal",
-        "Green",
-        "Olive",
-        "Amber",
-        "Orange",
-        "Red",
-        "Pink",
-        "Slate",
-        "Custom"
-      ],
+      "description": "Color of the bar left of each prompt; the row tint is mixed from it. One of Purple, Indigo, Blue, Teal, Green, Olive, Amber, Orange, Red, Pink, Slate, or Custom to use the custom hex color.",
       "default": "Purple"
     },
     "custom_color": {

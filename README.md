@@ -21,7 +21,7 @@ Open `/config` and look for the rows starting with `Prompt Marks:`.
 
 | Option | Default | What it does |
 | :- | :- | :- |
-| `accent_color` | Purple | Bar color, picked from Purple, Indigo, Blue, Teal, Green, Olive, Amber, Orange, Red, Pink, Slate, or Custom. The row tint is mixed from it. |
+| `accent_color` | Purple | Bar color: type Purple, Indigo, Blue, Teal, Green, Olive, Amber, Orange, Red, Pink, Slate, or Custom (case doesn't matter). Anything else falls back to Purple. The row tint is mixed from it. |
 | `custom_color` | `#5b2a86` | Hex color used when `accent_color` is Custom. |
 | `enabled` | on | Turns Prompt Marks off entirely. If agentic-toolkit installed it, use this rather than disabling the plugin, since disabling it also disables the toolkit. |
 | `navigation` | on | Jumps between prompts with the keys below. |
@@ -48,6 +48,18 @@ Any other key can be bound to the same actions in `~/.claude/keybindings.json`. 
   ]
 }
 ```
+
+## What it hooks
+
+Prompt Marks runs no programs, reads and writes no files, and sends nothing off your machine. It never changes a setting or a permission decision. Each hook:
+
+| Hook | When | What it does |
+| :- | :- | :- |
+| `session.start` | A session starts | Reads your `theme` setting to pick the dark or light tint. |
+| `classic.SessionStart` | `/clear`, resume, or fork | Forgets the prompts it was tracking for navigation, then passes the event on unchanged. |
+| `config.set` (key `theme` only) | You change the theme | Reads the new theme to recompute the tint and redraws, then passes the change on unchanged. It never blocks or alters the setting. |
+| `ui.render` (`UserMessage`) | A prompt row is drawn | Draws your own typed prompts with the accent bar and tint, and records where they are for navigation. Notifications and agent messages keep the default row. |
+| `ui.render` (`AbovePrompt`) | The area above the prompt is drawn | Adds two hidden buttons bound to the navigation keys. Nothing visible is drawn. |
 
 ## Develop
 
