@@ -38,8 +38,13 @@ export const ACCENTS: Readonly<Record<string, string>> = {
 
 export const CUSTOM = 'Custom'
 
-/** The hex for a named accent, or `custom` when Custom is picked and valid, else Purple. */
+/**
+ * The hex for a named accent, or `custom` when Custom is picked and valid, else Purple.
+ * The name is typed freely in /config, so case and surrounding spaces are ignored.
+ */
 export const resolveAccent = (name: unknown, custom: unknown): string => {
-  if (name === CUSTOM && typeof custom === 'string' && isHex(custom)) return custom.startsWith('#') ? custom : `#${custom}`
-  return (typeof name === 'string' && ACCENTS[name]) || ACCENTS.Purple!
+  const typed = typeof name === 'string' ? name.trim().toLowerCase() : ''
+  if (typed === CUSTOM.toLowerCase() && typeof custom === 'string' && isHex(custom)) return custom.startsWith('#') ? custom : `#${custom}`
+  const match = Object.keys(ACCENTS).find(key => key.toLowerCase() === typed)
+  return (match && ACCENTS[match]) || ACCENTS.Purple!
 }

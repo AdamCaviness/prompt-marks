@@ -28,10 +28,13 @@ function reset() {
   cursor = -1
 }
 
-async function loadTheme($: EngineInterface) {
-  const theme = (await $.config.list()).find(row => row.key === 'theme')?.value
+function applyTheme(theme: unknown) {
   const isLight = typeof theme === 'string' && theme.startsWith('light')
   tint = blend(accent, isLight ? LIGHT_BACKGROUND : DARK_BACKGROUND, strength / 100)
+}
+
+async function loadTheme($: EngineInterface) {
+  applyTheme((await $.config.list()).find(row => row.key === 'theme')?.value)
 }
 
 function track(id: string, onScreen: Visible | null | undefined) {
@@ -69,11 +72,11 @@ export const register: Register = (on, options) => {
     return next(e)
   }).catch(($, e, next) => next(e))
 
+  // Reads the theme being set to recompute the tint, then passes the change on unchanged.
   on('config.set', { key: 'theme' }, async ($, e, next) => {
-    const result = await next(e)
-    await loadTheme($)
+    applyTheme(e.value)
     $.ui.invalidate('ui.render')
-    return result
+    return next(e)
   }).catch(($, e, next) => (next.called ? undefined : next(e)))
 
   const styling = options.styling !== false
