@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/AdamCaviness/prompt-marks/compare/v0.3.1...v0.4.0) (2026-10-06)
+
+
+### Features
+
+* draw the ❯ pointer on the accent bar ([#7](https://github.com/AdamCaviness/prompt-marks/issues/7)) ([ee02b34](https://github.com/AdamCaviness/prompt-marks/commit/ee02b348ca1e76648a082dbe5f362ec0ba928cd3))
+
 ## [0.3.1](https://github.com/AdamCaviness/prompt-marks/compare/v0.3.0...v0.3.1) (2026-10-06)
 
 
