@@ -1,0 +1,15 @@
+{
+  "name": "prompt-marks",
+  "owner": {
+    "name": "Adam Caviness"
+  },
+  "metadata": {
+    "description": "Prompt Marks, a Claude Code mod that marks your prompts and jumps between them"
+  },
+  "plugins": [
+    {
+      "name": "prompt-marks",
+      "source": "./"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "name": "prompt-marks",
+  "displayName": "Prompt Marks",
+  "version": "0.1.0",
+  "description": "Marks your prompts in the transcript with a colored bar and tinted row, and jumps between them with Option+Up and Option+Down",
+  "author": { "name": "Adam Caviness" },
+  "repository": "https://github.com/adamcaviness/prompt-marks",
+  "license": "MIT",
+  "keywords": ["mod", "transcript", "navigation", "prompts"],
+  "userConfig": {
+    "accent_color": {
+      "type": "string",
+      "title": "Accent color",
+      "description": "Hex color of the bar left of each prompt; the row tint is mixed from it",
+      "default": "#5b2a86"
+    },
+    "tint_strength": {
+      "type": "number",
+      "title": "Tint strength",
+      "description": "Percent of the accent color mixed into the terminal background behind each prompt",
+      "default": 22,
+      "min": 0,
+      "max": 100
+    }
+  }
+}
