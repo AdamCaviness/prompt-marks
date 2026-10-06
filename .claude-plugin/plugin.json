@@ -1,7 +1,7 @@
 {
   "name": "prompt-marks",
   "displayName": "Prompt Marks",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Marks your prompts in the transcript with a colored bar and tinted row, and jumps between them with Option+Up and Option+Down",
   "author": {
     "name": "Adam Caviness"
