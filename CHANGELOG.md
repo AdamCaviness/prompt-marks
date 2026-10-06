@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/AdamCaviness/prompt-marks/compare/v0.3.0...v0.3.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* pass the Claude plugin directory's validation ([#5](https://github.com/AdamCaviness/prompt-marks/issues/5)) ([8cb2349](https://github.com/AdamCaviness/prompt-marks/commit/8cb23494cf792ce504d3217bc7a802e1fc4db447))
+
 ## [0.3.0](https://github.com/AdamCaviness/prompt-marks/compare/v0.2.0...v0.3.0) (2026-10-06)
 
 
