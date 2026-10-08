@@ -13,6 +13,8 @@ Needs Claude Code v2.1.287 or later. Jumping needs [fullscreen rendering](https:
 /plugin install prompt-marks --marketplace adamcaviness/prompt-marks
 ```
 
+Then turn on auto-update: `/plugin` → **Marketplaces** → **prompt-marks** → **Enable auto-update**. Claude Code leaves it off for marketplaces outside Anthropic's, so without it you keep the version you first installed.
+
 It's also in [agentic-marketplace](https://github.com/adamcaviness/agentic-marketplace), and agentic-toolkit installs it for you.
 
 ## Configure
