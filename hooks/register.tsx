@@ -134,9 +134,10 @@ export const register: Register = (on, options) => {
 
   // A stored prompt is newer than every prompt drawn so far, and its row is drawn after this runs. A queued one
   // is previewed by rows that are no prompts until it is stored.
-  if (navigation) on('session.append', { door: ['prompt', 'queue'] }, async ($, e, next) => {
+  // The queue door is in newer builds only, and the published declarations do not list it, so it is matched by pattern.
+  if (navigation) on('session.append', { door: /^(prompt|queue)$/ }, async ($, e, next) => {
     const text = e.message.content.flatMap(block => (block.type === 'text' ? [block.text] : [])).join('')
-    if (e.door === 'queue') {
+    if ((e.door as string) === 'queue') {
       const previews = order.queue(text, Date.now())
       previews.forEach(id => visible.delete(id))
       if (previews.length > 0) saveOrderSoon($)
