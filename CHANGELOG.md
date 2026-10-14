@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/AdamCaviness/prompt-marks/compare/v0.4.0...v0.4.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* keep prompts in transcript order so jumps reach every prompt ([#11](https://github.com/AdamCaviness/prompt-marks/issues/11)) ([1ad9c1b](https://github.com/AdamCaviness/prompt-marks/commit/1ad9c1b618e15b9e1f9e566d73541084b9dde8ef))
+
 ## [0.4.0](https://github.com/AdamCaviness/prompt-marks/compare/v0.3.1...v0.4.0) (2026-10-06)
 
 
