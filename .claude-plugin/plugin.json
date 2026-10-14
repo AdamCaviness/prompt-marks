@@ -8,6 +8,7 @@
   },
   "repository": "https://github.com/adamcaviness/prompt-marks",
   "license": "MIT",
+  "types": "./types/index.d.ts",
   "keywords": [
     "mod",
     "transcript",

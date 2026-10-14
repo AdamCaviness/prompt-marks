@@ -2,6 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 
 import { blend, resolveAccent } from '../hooks/color'
 import { pickTarget, type Visible } from '../hooks/navigation'
+import { CHUNK_MS, createOrder, PREVIEW_LOOKBACK_MS } from '../hooks/order'
 
 const SURFACES = ['terminal', 'desktop'] as const
 const BAND = {
@@ -73,9 +74,104 @@ describe('pickTarget', () => {
     expect(pickTarget(ids, shown([]), -1, -1)).toBe(2)
   })
 
+  test('Down steps past the last jump when the viewport cannot scroll it to the top', () => {
+    const shown = new Map<string, Visible>([['b', { first: 0, last: 2, of: 3 }], ['c', { first: 0, last: 2, of: 3 }]])
+    expect(pickTarget(ids, shown, 1, 1)).toBe(2)
+    expect(pickTarget(ids, shown, 2, 1)).toBe(-1)
+  })
+
   test('returns -1 past either end', () => {
     expect(pickTarget(ids, shown([['a', { first: 0, last: 2, of: 3 }]]), -1, -1)).toBe(-1)
     expect(pickTarget(ids, shown([['c', { first: 0, last: 2, of: 3 }]]), -1, 1)).toBe(-1)
+  })
+})
+
+describe('createOrder', () => {
+  const drawn = (order: ReturnType<typeof createOrder>, at: number, ...ids: string[]) => ids.forEach(id => order.add(id, `text of ${id}`, at))
+
+  test('keeps the transcript order of the first chunk drawn', () => {
+    const order = createOrder()
+    drawn(order, 0, 'p4', 'p5', 'p6')
+    expect(order.ids).toEqual(['p4', 'p5', 'p6'])
+  })
+
+  test('puts a later chunk of older prompts before the known ones, in its own order', () => {
+    const order = createOrder()
+    drawn(order, 0, 'p4', 'p5', 'p6')
+    drawn(order, 1000, 'p1', 'p2', 'p3')
+    drawn(order, 5000, 'p0')
+    expect(order.ids).toEqual(['p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6'])
+  })
+
+  test('treats rows drawn within CHUNK_MS of each other as one chunk', () => {
+    const order = createOrder()
+    drawn(order, 0, 'p3')
+    order.add('p1', 'one', 1000)
+    order.add('p2', 'two', 1000 + CHUNK_MS)
+    expect(order.ids).toEqual(['p1', 'p2', 'p3'])
+  })
+
+  test('puts an announced prompt at the end, however late it is drawn', () => {
+    const order = createOrder()
+    drawn(order, 0, 'p1', 'p2')
+    order.announce('p3', 'three')
+    drawn(order, 1000, 'p0')
+    drawn(order, 2000, 'p3')
+    expect(order.ids).toEqual(['p0', 'p1', 'p2', 'p3'])
+  })
+
+  test('ignores known ids and every placeholder row', () => {
+    const order = createOrder()
+    drawn(order, 0, 'p1', 'placeholder', 'placeholder-1', 'placeholder-2', 'p1')
+    expect(order.ids).toEqual(['p1'])
+  })
+
+  test('a removed prompt leaves the order and is not added again', () => {
+    const order = createOrder()
+    drawn(order, 0, 'p1', 'p2', 'p3')
+    order.remove('p2')
+    drawn(order, 1000, 'p2')
+    expect(order.ids).toEqual(['p1', 'p3'])
+  })
+
+  test('rows showing a queued prompt are previews, however often their id changes', () => {
+    const order = createOrder()
+    drawn(order, 0, 'p1', 'p2')
+    order.queue('  do the\nthing ', 500)
+    order.add('preview-a', 'do the thing', 1000)
+    order.add('preview-b', 'do the thing', 2000)
+    order.add('preview-a', 'do the thing', 3000)
+    expect(order.ids).toEqual(['p1', 'p2'])
+    expect(order.has('preview-a')).toBe(false)
+    order.announce('p3', 'do the thing')
+    order.add('p3', 'do the thing', 4000)
+    expect(order.ids).toEqual(['p1', 'p2', 'p3'])
+  })
+
+  test('a queued prompt takes back the preview rows drawn just before it was noted', () => {
+    const order = createOrder()
+    drawn(order, 0, 'p1', 'p2')
+    order.add('preview-a', 'do the thing', 5000)
+    order.add('old', 'do the thing', 5000 + CHUNK_MS * 2)
+    expect(order.queue('do the thing', 5300)).toEqual(['preview-a', 'old'])
+    expect(order.ids).toEqual(['p1', 'p2'])
+    expect(order.queue('do the thing', 5300 + PREVIEW_LOOKBACK_MS + 1)).toEqual([])
+  })
+
+  test('restore takes a saved order, with prompts drawn since after it', () => {
+    const order = createOrder()
+    drawn(order, 0, 'p9', 'p2')
+    order.restore(['p1', 'p2', 'p3'])
+    expect(order.ids).toEqual(['p1', 'p2', 'p3', 'p9'])
+  })
+
+  test('reset forgets everything', () => {
+    const order = createOrder()
+    drawn(order, 0, 'p1')
+    order.announce('p2', 'two')
+    order.reset()
+    drawn(order, 0, 'p2')
+    expect(order.ids).toEqual(['p2'])
   })
 })
 

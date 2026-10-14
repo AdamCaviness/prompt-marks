@@ -2,6 +2,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import { ACCENTS, blend, resolveAccent } from './color'
 import { pickTarget, type Visible } from './navigation'
+import { createOrder } from './order'
 
 const DEFAULT_TINT_STRENGTH = 22
 // Assumed terminal backgrounds for the theme family; the tint is mixed over these.
@@ -15,21 +16,31 @@ const ACTION_PREVIOUS = 'app:diffFileListUp'
 const ACTION_NEXT = 'app:diffFileListDown'
 // Rows the person typed (or sent from Remote Control); notifications and agent messages stay unstyled.
 const OWN_ORIGINS: ReadonlySet<string> = new Set(['composer', 'bridge'])
+// The order is saved this long after it last changed, so the rows of one chunk make one write.
+const SAVE_DELAY_MS = 100
+// Where the order survives a reload of the mod; `plugin` and `key` are literals for `claude plugin validate`.
+const ORDER_STATE = { plugin: 'prompt-marks', key: 'order' } as const
+// Reaching the oldest drawn prompt makes the engine draw older rows within a few milliseconds; Up waits this long for them.
+const OLDER_ROWS_WAIT_MS = 150
 
 let accent = ACCENTS.Purple!
 let strength = DEFAULT_TINT_STRENGTH
 let tint = blend(accent, DARK_BACKGROUND, DEFAULT_TINT_STRENGTH / 100)
 let pointer = blend('#ffffff', accent, POINTER_LIGHTNESS)
 
-// Prompt message ids in transcript order, as first drawn, and which of them the viewport shows.
-let prompts: string[] = []
+// Prompt message ids in transcript order, and which of them the viewport shows.
+const order = createOrder()
 let visible = new Map<string, Visible>()
-let cursor = -1
+// The prompt the last jump revealed, by id: its index moves when older prompts are drawn.
+let cursorId: string | null = null
+// Jumps run one at a time, so a second key press sees where the first one left the viewport.
+let pending: Promise<void> = Promise.resolve()
+let saveQueued = false
 
 function reset() {
-  prompts = []
+  order.reset()
   visible = new Map()
-  cursor = -1
+  cursorId = null
 }
 
 function applyTheme(theme: unknown) {
@@ -41,23 +52,56 @@ async function loadTheme($: EngineInterface) {
   applyTheme((await $.config.list()).find(row => row.key === 'theme')?.value)
 }
 
-function track(id: string, onScreen: Visible | null | undefined) {
-  if (!prompts.includes(id)) prompts.push(id)
+// A ui.render hook may not write state, so the save runs from a timer.
+function saveOrderSoon($: EngineInterface) {
+  if (saveQueued) return
+  saveQueued = true
+  $.clock.after(SAVE_DELAY_MS, async () => {
+    saveQueued = false
+    await $.state.set(ORDER_STATE, [...order.ids])
+  })
+}
+
+function track($: EngineInterface, id: string, text: string, onScreen: Visible | null | undefined) {
+  const known = order.ids.length
+  order.add(id, text, Date.now())
+  if (!order.has(id)) return
+  if (order.ids.length !== known) saveOrderSoon($)
   if (onScreen) visible.set(id, onScreen)
   else visible.delete(id)
 }
 
-// A refused target (its row is not drawn right now) is skipped, and the jump
-// tries the next prompt in the same direction.
+const pick = (direction: -1 | 1) =>
+  pickTarget(order.ids, visible, cursorId === null ? -1 : order.ids.indexOf(cursorId), direction)
+
+// A target whose row is not drawn (refused by the engine) is forgotten, and the
+// jump picks again, so it ends only when no prompt is left in that direction.
 async function jump($: EngineInterface, direction: -1 | 1) {
-  for (let target = pickTarget(prompts, visible, cursor, direction); target >= 0 && target < prompts.length; target += direction) {
-    const result = await $.ui.scroll({ to: { requestId: prompts[target]! }, block: 'start' })
+  let target = pick(direction)
+  if (target === -1 && direction === -1) {
+    const known = order.ids.length
+    await $.clock.sleep(OLDER_ROWS_WAIT_MS)
+    if (order.ids.length !== known) target = pick(direction)
+  }
+  while (target !== -1) {
+    const id = order.ids[target]!
+    const result = await $.ui.scroll({ to: { requestId: id }, block: 'start' })
     if (!result.deny) {
-      cursor = target
+      cursorId = id
       return
     }
+    order.remove(id)
+    saveOrderSoon($)
+    visible.delete(id)
+    target = pick(direction)
   }
   $.ui.toast(direction === -1 ? 'No earlier prompt' : 'No later prompt')
+}
+
+const queueJump = ($: EngineInterface, direction: -1 | 1) => {
+  const run = () => jump($, direction)
+  pending = pending.then(run, run)
+  return pending
 }
 
 export const register: Register = (on, options) => {
@@ -69,6 +113,7 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     await loadTheme($)
+    order.restore((await $.state.get(ORDER_STATE)).value ?? [])
     return next(e)
   })
 
@@ -87,10 +132,24 @@ export const register: Register = (on, options) => {
   const styling = options.styling !== false
   const navigation = options.navigation !== false
 
+  // A stored prompt is newer than every prompt drawn so far, and its row is drawn after this runs. A queued one
+  // is previewed by rows that are no prompts until it is stored.
+  if (navigation) on('session.append', { door: ['prompt', 'queue'] }, async ($, e, next) => {
+    const text = e.message.content.flatMap(block => (block.type === 'text' ? [block.text] : [])).join('')
+    if (e.door === 'queue') {
+      const previews = order.queue(text, Date.now())
+      previews.forEach(id => visible.delete(id))
+      if (previews.length > 0) saveOrderSoon($)
+    } else if (OWN_ORIGINS.has(e.origin.kind)) {
+      order.announce(e.uuid, text)
+    }
+    return next(e)
+  }).catch(($, e, next) => (next.called ? undefined : next(e)))
+
   // Navigation learns the prompts from these rows, so the hook runs when either feature is on.
   if (styling || navigation) on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
     if (!OWN_ORIGINS.has(e.props.origin.kind)) return next(e)
-    if (navigation) track(e.requestId, e.props.onScreen)
+    if (navigation) track($, e.requestId, e.props.text, e.props.onScreen)
     if (!styling) return next(e)
     const { Box, Text } = $.ui.resolve(e)
     return (
@@ -113,8 +172,8 @@ export const register: Register = (on, options) => {
       <Box flexDirection="column">
         {theirs}
         <Box display="none">
-          <Button key="previous-prompt" label="previous prompt" action={ACTION_PREVIOUS} onPress={() => jump($, -1)} />
-          <Button key="next-prompt" label="next prompt" action={ACTION_NEXT} onPress={() => jump($, 1)} />
+          <Button key="previous-prompt" label="previous prompt" action={ACTION_PREVIOUS} onPress={() => queueJump($, -1)} />
+          <Button key="next-prompt" label="next prompt" action={ACTION_NEXT} onPress={() => queueJump($, 1)} />
         </Box>
       </Box>
     )
