@@ -8,6 +8,10 @@ export type Visible = { first: number; last: number; of: number }
  * Relative to the topmost prompt on screen: Up reveals that prompt when its top
  * is scrolled away, else the one before it; Down reveals the one after it. With
  * no prompt on screen, it steps from the last jump, or starts at the newest.
+ *
+ * Down steps past the last jump's prompt when it would pick that prompt again: near
+ * the bottom the viewport cannot move it to the top, so the prompt above it stays
+ * the topmost on screen and would otherwise be picked forever.
  */
 export function pickTarget(
   prompts: readonly string[],
@@ -26,5 +30,6 @@ export function pickTarget(
         : visible.get(prompts[top]!)!.first > 0
           ? top
           : top - 1
-  return target >= 0 && target < prompts.length ? target : -1
+  const next = direction === 1 && target === cursor ? target + 1 : target
+  return next >= 0 && next < prompts.length ? next : -1
 }

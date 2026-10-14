@@ -51,15 +51,22 @@ Any other key can be bound to the same actions in `~/.claude/keybindings.json`. 
 }
 ```
 
+## How jumping finds prompts
+
+Claude Code draws only the newest part of a long transcript and draws older prompts when you scroll toward the top, so Prompt Marks learns the prompts as they are drawn. Each batch of older prompts goes before the ones it already knows, a prompt you send goes after them, and the order is kept in session memory so reloading the mod (for example after changing a setting in `/config`) does not lose it. Previews of prompts you queued while Claude was working are ignored until the prompt is stored.
+
+When Up reaches the oldest prompt drawn so far, it waits a moment for Claude Code to draw older ones before it says there is no earlier prompt.
+
 ## What it hooks
 
-Prompt Marks runs no programs, reads and writes no files, and sends nothing off your machine. It never changes a setting or a permission decision. Each hook:
+Prompt Marks runs no programs, reads and writes no files, and sends nothing off your machine. Its only stored data is the list of prompt ids, kept in the session's memory and discarded when the session ends or on `/clear`, `/resume`, and `/branch`. It never changes a setting or a permission decision. Each hook:
 
 | Hook | When | What it does |
 | :- | :- | :- |
-| `session.start` | A session starts | Reads your `theme` setting to pick the dark or light tint. |
+| `session.start` | A session starts, or the mod reloads | Reads your `theme` setting to pick the dark or light tint, and restores the prompt order saved in session memory. |
 | `classic.SessionStart` | `/clear`, resume, or fork | Forgets the prompts it was tracking for navigation, then passes the event on unchanged. |
 | `config.set` (key `theme` only) | You change the theme | Reads the new theme to recompute the tint and redraws, then passes the change on unchanged. It never blocks or alters the setting. |
+| `session.append` (doors `prompt` and `queue` only) | A prompt is stored, or queued behind a running turn | Notes which prompt is newest and which rows only preview a queued prompt, then passes the row on unchanged. |
 | `ui.render` (`UserMessage`) | A prompt row is drawn | Draws your own typed prompts with the accent bar and tint, and records where they are for navigation. Notifications and agent messages keep the default row. |
 | `ui.render` (`AbovePrompt`) | The area above the prompt is drawn | Adds two hidden buttons bound to the navigation keys. Nothing visible is drawn. |
 
