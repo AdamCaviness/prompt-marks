@@ -59,12 +59,12 @@ When Up reaches the oldest prompt drawn so far, it waits a moment for Claude Cod
 
 ## What it hooks
 
-Prompt Marks runs no programs, reads and writes no files, and sends nothing off your machine. Its only stored data is the list of prompt ids, kept in the session's memory and discarded when the session ends or on `/clear`, `/resume`, and `/branch`. It never changes a setting or a permission decision. Each hook:
+Prompt Marks runs no programs, reads and writes no files, and sends nothing off your machine. Its only stored data is the list of prompt ids, kept in the session's memory and discarded when the session ends or on `/clear` and `/resume`. It never changes a setting or a permission decision. Each hook:
 
 | Hook | When | What it does |
 | :- | :- | :- |
 | `session.start` | A session starts, or the mod reloads | Reads your `theme` setting to pick the dark or light tint, and restores the prompt order saved in session memory. |
-| `classic.SessionStart` | `/clear`, resume, or fork | Forgets the prompts it was tracking for navigation, then passes the event on unchanged. |
+| `session.end` | The session ends, including on `/clear` and resume | Forgets the prompts it was tracking for navigation, then passes the event on unchanged. |
 | `config.set` (key `theme` only) | You change the theme | Reads the new theme to recompute the tint and redraws, then passes the change on unchanged. It never blocks or alters the setting. |
 | `session.append` (doors `prompt` and `queue` only) | A prompt is stored, or queued behind a running turn | Notes which prompt is newest and which rows only preview a queued prompt, then passes the row on unchanged. |
 | `ui.render` (`UserMessage`) | A prompt row is drawn | Draws your own typed prompts with the accent bar and tint, and records where they are for navigation. Notifications and agent messages keep the default row. |

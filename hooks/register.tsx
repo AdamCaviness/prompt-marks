@@ -117,10 +117,12 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  on('classic.SessionStart', { source: ['clear', 'resume', 'fork'] }, async ($, e, next) => {
+  // The session this order belongs to ends on /clear and resume, and the process goes on under a new one. A classic
+  // hook is not used: an organization's security default moves classic events past a person's plugins.
+  on('session.end', async ($, e, next) => {
     reset()
     return next(e)
-  }).catch(($, e, next) => next(e))
+  }).catch(($, e, next) => (next.called ? undefined : next(e)))
 
   // Reads the theme being set to recompute the tint, then passes the change on unchanged.
   on('config.set', { key: 'theme' }, async ($, e, next) => {
@@ -134,18 +136,25 @@ export const register: Register = (on, options) => {
 
   // A stored prompt is newer than every prompt drawn so far, and its row is drawn after this runs. A queued one
   // is previewed by rows that are no prompts until it is stored.
-  // The queue door is in newer builds only, and the published declarations do not list it, so it is matched by pattern.
-  if (navigation) on('session.append', { door: /^(prompt|queue)$/ }, async ($, e, next) => {
-    const text = e.message.content.flatMap(block => (block.type === 'text' ? [block.text] : [])).join('')
-    if ((e.door as string) === 'queue') {
-      const previews = order.queue(text, Date.now())
+  // Each door is matched by a literal, never a pattern: the engine cannot tell that a pattern leaves out the doors an
+  // organization's security default moves past a person's plugins, so it reports a pattern hook as skipped.
+  // The queue door is in newer builds only, and older builds' declarations do not list it, hence the cast.
+  const textOf = (message: { content: readonly { type: string; text?: string }[] }) =>
+    message.content.flatMap(block => (block.type === 'text' && block.text !== undefined ? [block.text] : [])).join('')
+
+  if (navigation) {
+    on('session.append', { door: 'prompt' }, async ($, e, next) => {
+      if (OWN_ORIGINS.has(e.origin.kind)) order.announce(e.uuid, textOf(e.message))
+      return next(e)
+    }).catch(($, e, next) => (next.called ? undefined : next(e)))
+
+    on('session.append', { door: 'queue' as 'prompt' }, async ($, e, next) => {
+      const previews = order.queue(textOf(e.message), Date.now())
       previews.forEach(id => visible.delete(id))
       if (previews.length > 0) saveOrderSoon($)
-    } else if (OWN_ORIGINS.has(e.origin.kind)) {
-      order.announce(e.uuid, text)
-    }
-    return next(e)
-  }).catch(($, e, next) => (next.called ? undefined : next(e)))
+      return next(e)
+    }).catch(($, e, next) => (next.called ? undefined : next(e)))
+  }
 
   // Navigation learns the prompts from these rows, so the hook runs when either feature is on.
   if (styling || navigation) on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
