@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/AdamCaviness/prompt-marks/compare/v0.4.1...v0.4.2) (2026-10-20)
+
+
+### Bug Fixes
+
+* stop organization security defaults from skipping hooks ([#13](https://github.com/AdamCaviness/prompt-marks/issues/13)) ([68b55d6](https://github.com/AdamCaviness/prompt-marks/commit/68b55d6c3c5bb9b640a5dffaa98c6581144d8980))
+
 ## [0.4.1](https://github.com/AdamCaviness/prompt-marks/compare/v0.4.0...v0.4.1) (2026-10-14)
 
 
