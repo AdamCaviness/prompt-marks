@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/AdamCaviness/prompt-marks/compare/v0.4.2...v0.5.0) (2026-10-21)
+
+
+### Features
+
+* wrap jumps at the ends, jump to slash commands, and stop jump cycling ([#15](https://github.com/AdamCaviness/prompt-marks/issues/15)) ([ec4e016](https://github.com/AdamCaviness/prompt-marks/commit/ec4e016ecde635616c3e569f3c77061d4002a59b))
+
 ## [0.4.2](https://github.com/AdamCaviness/prompt-marks/compare/v0.4.1...v0.4.2) (2026-10-20)
 
 
