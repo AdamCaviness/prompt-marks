@@ -1,8 +1,8 @@
 import type { EngineInterface, Register } from 'claude-code'
 
 import { ACCENTS, blend, resolveAccent } from './color'
-import { pickTarget, type Visible } from './navigation'
-import { createOrder } from './order'
+import { createViewport, type EndPress, pressAtEnd, type Visible } from './navigation'
+import { commandLine, createOrder } from './order'
 
 const DEFAULT_TINT_STRENGTH = 22
 // Assumed terminal backgrounds for the theme family; the tint is mixed over these.
@@ -16,6 +16,8 @@ const ACTION_PREVIOUS = 'app:diffFileListUp'
 const ACTION_NEXT = 'app:diffFileListDown'
 // Rows the person typed (or sent from Remote Control); notifications and agent messages stay unstyled.
 const OWN_ORIGINS: ReadonlySet<string> = new Set(['composer', 'bridge'])
+// A command that only prints (`/context`) is stored with the engine as its origin, though the person typed it.
+const COMMAND_ORIGINS: ReadonlySet<string> = new Set([...OWN_ORIGINS, 'engine'])
 // The order is saved this long after it last changed, so the rows of one chunk make one write.
 const SAVE_DELAY_MS = 100
 // Where the order survives a reload of the mod; `plugin` and `key` are literals for `claude plugin validate`.
@@ -28,19 +30,20 @@ let strength = DEFAULT_TINT_STRENGTH
 let tint = blend(accent, DARK_BACKGROUND, DEFAULT_TINT_STRENGTH / 100)
 let pointer = blend('#ffffff', accent, POINTER_LIGHTNESS)
 
-// Prompt message ids in transcript order, and which of them the viewport shows.
+// Prompt message ids in transcript order, and where they sit relative to the viewport.
 const order = createOrder()
-let visible = new Map<string, Visible>()
-// The prompt the last jump revealed, by id: its index moves when older prompts are drawn.
-let cursorId: string | null = null
+const viewport = createViewport(() => order.ids)
 // Jumps run one at a time, so a second key press sees where the first one left the viewport.
 let pending: Promise<void> = Promise.resolve()
+// When the last key press came, and the last one that found no prompt past an end after a pause.
+let lastPressAt = Number.NEGATIVE_INFINITY
+let endPress: EndPress | null = null
 let saveQueued = false
 
 function reset() {
   order.reset()
-  visible = new Map()
-  cursorId = null
+  viewport.reset()
+  endPress = null
 }
 
 function applyTheme(theme: unknown) {
@@ -67,39 +70,45 @@ function track($: EngineInterface, id: string, text: string, onScreen: Visible |
   order.add(id, text, Date.now())
   if (!order.has(id)) return
   if (order.ids.length !== known) saveOrderSoon($)
-  if (onScreen) visible.set(id, onScreen)
-  else visible.delete(id)
+  viewport.report(id, onScreen)
 }
-
-const pick = (direction: -1 | 1) =>
-  pickTarget(order.ids, visible, cursorId === null ? -1 : order.ids.indexOf(cursorId), direction)
 
 // A target whose row is not drawn (refused by the engine) is forgotten, and the
 // jump picks again, so it ends only when no prompt is left in that direction.
-async function jump($: EngineInterface, direction: -1 | 1) {
-  let target = pick(direction)
+// At an end nothing moves, and a second press there soon after wraps to the other end.
+async function jump($: EngineInterface, direction: -1 | 1, at: number, sincePress: number) {
+  let target = viewport.pick(direction)
   if (target === -1 && direction === -1) {
     const known = order.ids.length
     await $.clock.sleep(OLDER_ROWS_WAIT_MS)
-    if (order.ids.length !== known) target = pick(direction)
+    if (order.ids.length !== known) target = viewport.pick(direction)
+  }
+  if (target !== -1) endPress = null
+  else {
+    const end = pressAtEnd(endPress, direction, at, sincePress)
+    endPress = end.last
+    if (end.wrap && order.ids.length > 0) target = direction === -1 ? order.ids.length - 1 : 0
   }
   while (target !== -1) {
     const id = order.ids[target]!
+    const since = viewport.mark()
     const result = await $.ui.scroll({ to: { requestId: id }, block: 'start' })
     if (!result.deny) {
-      cursorId = id
+      viewport.landed(id, since)
       return
     }
     order.remove(id)
     saveOrderSoon($)
-    visible.delete(id)
-    target = pick(direction)
+    viewport.forget(id)
+    target = viewport.pick(direction)
   }
-  $.ui.toast(direction === -1 ? 'No earlier prompt' : 'No later prompt')
 }
 
 const queueJump = ($: EngineInterface, direction: -1 | 1) => {
-  const run = () => jump($, direction)
+  const at = Date.now()
+  const sincePress = at - lastPressAt
+  lastPressAt = at
+  const run = () => jump($, direction, at, sincePress)
   pending = pending.then(run, run)
   return pending
 }
@@ -148,9 +157,25 @@ export const register: Register = (on, options) => {
       return next(e)
     }).catch(($, e, next) => (next.called ? undefined : next(e)))
 
+    // A slash command's row is drawn by no hook, so it is learned when stored. Its output is stored the same way.
+    on('session.append', { door: 'command' }, async ($, e, next) => {
+      const line = COMMAND_ORIGINS.has(e.origin.kind) ? commandLine(textOf(e.message)) : undefined
+      if (line !== undefined) {
+        order.command(e.uuid, line)
+        saveOrderSoon($)
+      }
+      return next(e)
+    }).catch(($, e, next) => (next.called ? undefined : next(e)))
+
+    // Enter in the prompt box scrolls the transcript to its end, past rows the engine does not report gone.
+    on('prompt.submit', async ($, e, next) => {
+      if (e.origin.kind === 'composer' && !e.command) viewport.toEnd()
+      return next(e)
+    }).catch(($, e, next) => (next.called ? undefined : next(e)))
+
     on('session.append', { door: 'queue' as 'prompt' }, async ($, e, next) => {
       const previews = order.queue(textOf(e.message), Date.now())
-      previews.forEach(id => visible.delete(id))
+      previews.forEach(id => viewport.forget(id))
       if (previews.length > 0) saveOrderSoon($)
       return next(e)
     }).catch(($, e, next) => (next.called ? undefined : next(e)))

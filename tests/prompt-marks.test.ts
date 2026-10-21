@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { blend, resolveAccent } from '../hooks/color'
-import { pickTarget, type Visible } from '../hooks/navigation'
-import { CHUNK_MS, createOrder, PREVIEW_LOOKBACK_MS } from '../hooks/order'
+import { createViewport, DOUBLE_PRESS_MS, KEY_REPEAT_MS, pickTarget, pressAtEnd, type Visible } from '../hooks/navigation'
+import { CHUNK_MS, commandLine, createOrder, PREVIEW_LOOKBACK_MS } from '../hooks/order'
 
 const SURFACES = ['terminal', 'desktop'] as const
 const BAND = {
@@ -86,6 +86,113 @@ describe('pickTarget', () => {
   })
 })
 
+describe('pressAtEnd', () => {
+  const up = { direction: -1, at: 1000 } as const
+
+  test('a press at an end after a pause arms the wrap, and a second soon after wraps', () => {
+    expect(pressAtEnd(null, -1, 1000, DOUBLE_PRESS_MS + 1)).toEqual({ wrap: false, last: up })
+    expect(pressAtEnd(up, -1, 1250, 250)).toEqual({ wrap: true, last: null })
+    expect(pressAtEnd(up, -1, 1000 + DOUBLE_PRESS_MS, DOUBLE_PRESS_MS).wrap).toBe(true)
+  })
+
+  test('steady presses that walk to an end stop there', () => {
+    expect(pressAtEnd(null, -1, 1000, 400)).toEqual({ wrap: false, last: null })
+    expect(pressAtEnd(null, -1, 1400, 400)).toEqual({ wrap: false, last: null })
+  })
+
+  test('a slow second press, or one toward the other end, does not wrap', () => {
+    expect(pressAtEnd(up, -1, 1000 + DOUBLE_PRESS_MS + 1, DOUBLE_PRESS_MS + 1).wrap).toBe(false)
+    expect(pressAtEnd(up, 1, 1250, 250).wrap).toBe(false)
+  })
+
+  test('a held key repeating stops at the end', () => {
+    expect(pressAtEnd(up, -1, 1000 + KEY_REPEAT_MS - 1, KEY_REPEAT_MS - 1)).toEqual({ wrap: false, last: null })
+  })
+})
+
+describe('commandLine', () => {
+  test('reads the command line a stored slash command ran', () => {
+    const doctor = '<command-message>doctor</command-message>\n<command-name>/doctor</command-name>\n<command-args>with some words</command-args>'
+    expect(commandLine(doctor)).toBe('/doctor with some words')
+    expect(commandLine('<command-name>/context</command-name>\n<command-message>context</command-message>\n<command-args></command-args>')).toBe('/context')
+  })
+
+  test('a command output row or a plain prompt runs no command', () => {
+    expect(commandLine('<local-command-stdout>Context Usage</local-command-stdout>')).toBeUndefined()
+    expect(commandLine('fix the bug')).toBeUndefined()
+  })
+})
+
+describe('createViewport', () => {
+  const ids = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']
+  const whole: Visible = { first: 0, last: 1, of: 2 }
+  // A jump as the engine answers it: the scroll resolves, then the revealed prompt is reported on screen.
+  const jump = (viewport: ReturnType<typeof createViewport>, direction: -1 | 1) => {
+    const target = viewport.pick(direction)
+    if (target === -1) return undefined
+    viewport.landed(ids[target]!, viewport.mark())
+    viewport.report(ids[target]!, whole)
+    return ids[target]
+  }
+
+  test('Down steps one prompt per press after Up jumped past a prompt the engine never reported gone', () => {
+    const viewport = createViewport(() => ids)
+    viewport.report('p3', whole)
+    viewport.report('p2', whole)
+    viewport.landed('p2', 0)
+    expect(jump(viewport, -1)).toBe('p1')
+    expect([1, 2, 3, 4, 5].map(() => jump(viewport, 1))).toEqual(['p2', 'p3', 'p4', 'p5', 'p6'])
+    expect(jump(viewport, 1)).toBeUndefined()
+  })
+
+  test('Down reveals the next prompt when the prompts below the last jump stay on screen unreported', () => {
+    const viewport = createViewport(() => ids)
+    viewport.landed('p2', viewport.mark())
+    ;['p2', 'p3', 'p4', 'p5'].forEach(id => viewport.report(id, whole))
+    viewport.landed('p3', viewport.mark())
+    viewport.report('p2', null)
+    viewport.report('p6', whole)
+    expect(viewport.pick(1)).toBe(3)
+  })
+
+  test('a jump that cannot bring its prompt to the top keeps the reports made while it scrolled', () => {
+    const viewport = createViewport(() => ids)
+    viewport.report('p5', whole)
+    const since = viewport.mark()
+    viewport.report('p4', whole)
+    viewport.landed('p6', since)
+    expect(viewport.pick(-1)).toBe(2)
+  })
+
+  test('after Enter in the prompt box, Up starts from the newest prompt', () => {
+    const viewport = createViewport(() => ids)
+    viewport.report('p2', whole)
+    viewport.landed('p2', viewport.mark())
+    viewport.toEnd()
+    expect(viewport.pick(-1)).toBe(5)
+  })
+
+  test('a prompt cut off at the top leaves no older prompt on screen, and one cut off at the bottom no newer', () => {
+    const viewport = createViewport(() => ids)
+    viewport.report('p1', whole)
+    viewport.report('p6', whole)
+    viewport.report('p3', { first: 1, last: 1, of: 2 })
+    expect(viewport.pick(-1)).toBe(2)
+    viewport.report('p4', { first: 0, last: 0, of: 2 })
+    expect(viewport.pick(1)).toBe(3)
+    viewport.report('p3', null)
+    expect(viewport.pick(1)).toBe(4)
+  })
+
+  test('a forgotten prompt is no longer on screen', () => {
+    const viewport = createViewport(() => ids)
+    viewport.report('p2', whole)
+    viewport.report('p3', whole)
+    viewport.forget('p2')
+    expect(viewport.pick(-1)).toBe(1)
+  })
+})
+
 describe('createOrder', () => {
   const drawn = (order: ReturnType<typeof createOrder>, at: number, ...ids: string[]) => ids.forEach(id => order.add(id, `text of ${id}`, at))
 
@@ -118,6 +225,23 @@ describe('createOrder', () => {
     drawn(order, 1000, 'p0')
     drawn(order, 2000, 'p3')
     expect(order.ids).toEqual(['p0', 'p1', 'p2', 'p3'])
+  })
+
+  test('puts a slash command at the end when stored, and keeps it there as older chunks are drawn', () => {
+    const order = createOrder()
+    drawn(order, 0, 'p2', 'p3')
+    order.command('c1', '/doctor check')
+    drawn(order, 1000, 'p1')
+    drawn(order, 2000, 'c1')
+    expect(order.ids).toEqual(['p1', 'p2', 'p3', 'c1'])
+  })
+
+  test('a stored slash command stops marking rows with its text as previews', () => {
+    const order = createOrder()
+    order.queue('/doctor check', 0)
+    order.command('c1', '/doctor   check')
+    order.add('p1', '/doctor check', 1000)
+    expect(order.has('p1')).toBe(true)
   })
 
   test('ignores known ids and every placeholder row', () => {

@@ -55,7 +55,13 @@ Any other key can be bound to the same actions in `~/.claude/keybindings.json`. 
 
 Claude Code draws only the newest part of a long transcript and draws older prompts when you scroll toward the top, so Prompt Marks learns the prompts as they are drawn. Each batch of older prompts goes before the ones it already knows, a prompt you send goes after them, and the order is kept in session memory so reloading the mod (for example after changing a setting in `/config`) does not lose it. Previews of prompts you queued while Claude was working are ignored until the prompt is stored.
 
-When Up reaches the oldest prompt drawn so far, it waits a moment for Claude Code to draw older ones before it says there is no earlier prompt.
+When Up reaches the oldest prompt drawn so far, it waits a moment for Claude Code to draw older ones before it stops.
+
+At either end a press does nothing. Pause there, then press the same key twice quickly to wrap to the other end: Up twice at the oldest prompt goes to the newest, and Down twice at the newest goes to the oldest drawn so far. Holding the key down stops at the end without wrapping.
+
+Slash commands you run (`/doctor some words`, a skill) are jump targets too, from the moment you run them. Claude Code draws their rows itself with no hook for mods, so they keep the default gray row, and commands from before a resume are not known.
+
+Each jump starts from the topmost prompt on screen. Claude Code does not report every prompt that leaves the screen during a long jump or when you send a prompt, so after a jump Prompt Marks treats the prompt it just revealed as the topmost, and after you send a prompt it starts again from the newest.
 
 ## What it hooks
 
@@ -66,7 +72,8 @@ Prompt Marks runs no programs, reads and writes no files, and sends nothing off 
 | `session.start` | A session starts, or the mod reloads | Reads your `theme` setting to pick the dark or light tint, and restores the prompt order saved in session memory. |
 | `session.end` | The session ends, including on `/clear` and resume | Forgets the prompts it was tracking for navigation, then passes the event on unchanged. |
 | `config.set` (key `theme` only) | You change the theme | Reads the new theme to recompute the tint and redraws, then passes the change on unchanged. It never blocks or alters the setting. |
-| `session.append` (doors `prompt` and `queue` only) | A prompt is stored, or queued behind a running turn | Notes which prompt is newest and which rows only preview a queued prompt, then passes the row on unchanged. |
+| `session.append` (doors `prompt`, `command` and `queue` only) | A prompt or slash command is stored, or queued behind a running turn | Notes which prompt or command is newest and which rows only preview a queued prompt, then passes the row on unchanged. |
+| `prompt.submit` | You press Enter in the prompt box | Notes that the transcript scrolled to its end, then passes the prompt on unchanged. It never blocks or alters a prompt. |
 | `ui.render` (`UserMessage`) | A prompt row is drawn | Draws your own typed prompts with the accent bar and tint, and records where they are for navigation. Notifications and agent messages keep the default row. |
 | `ui.render` (`AbovePrompt`) | The area above the prompt is drawn | Adds two hidden buttons bound to the navigation keys. Nothing visible is drawn. |
 
