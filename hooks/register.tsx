@@ -168,8 +168,9 @@ export const register: Register = (on, options) => {
     }).catch(($, e, next) => (next.called ? undefined : next(e)))
 
     // Enter in the prompt box scrolls the transcript to its end, past rows the engine does not report gone.
+    // Older builds' declarations do not list the slash command a submission runs, hence the `in` check.
     on('prompt.submit', async ($, e, next) => {
-      if (e.origin.kind === 'composer' && !e.command) viewport.toEnd()
+      if (e.origin.kind === 'composer' && !('command' in e && e.command)) viewport.toEnd()
       return next(e)
     }).catch(($, e, next) => (next.called ? undefined : next(e)))
 
