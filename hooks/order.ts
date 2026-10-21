@@ -4,6 +4,9 @@
 // A chunk arrives in one burst, in transcript order, and is older than every prompt already known. A prompt
 // the person just sent is announced by `session.append` before its row is drawn, and is newer than all.
 //
+// A slash command the person runs is stored by `session.append` too, but its row is drawn by no hook, so it goes at the
+// end when stored. Commands stored before the session was resumed are never announced, so they are not in the order.
+//
 // A prompt typed while the engine works is drawn as a preview row, under an id that changes whenever the queue
 // does, until it is stored. `session.append` announces the queued text just after the first preview is drawn, so a
 // row with that text, drawn then or shortly before, is no prompt.
@@ -29,6 +32,8 @@ export type PromptOrder = {
   queue(text: string, now: number): string[]
   /** Marks `id`, a prompt just stored with `text`, so its first draw goes at the end. */
   announce(id: string, text: string): void
+  /** Puts `id`, a slash command just stored as `line`, at the end: no hook draws its row. */
+  command(id: string, line: string): void
   /** Records a drawn row; a known, placeholder, preview or removed id changes nothing. */
   add(id: string, text: string, now: number): void
   /** Whether `id` is a prompt in the order. */
@@ -41,6 +46,18 @@ export type PromptOrder = {
 }
 
 const normalize = (text: string): string => text.trim().replace(/\s+/g, ' ')
+
+// A stored slash command's text names it in tags, as `<command-name>/doctor</command-name>` and `<command-args>`.
+const COMMAND_NAME = /<command-name>([^<]*)<\/command-name>/
+const COMMAND_ARGS = /<command-args>([\s\S]*?)<\/command-args>/
+
+/** The command line a stored slash command ran, as typed; `undefined` for a row that runs none, such as its output. */
+export const commandLine = (text: string): string | undefined => {
+  const name = COMMAND_NAME.exec(text)?.[1]
+  if (name === undefined) return undefined
+  const args = COMMAND_ARGS.exec(text)?.[1]?.trim()
+  return args ? `${name} ${args}` : name
+}
 
 export function createOrder(): PromptOrder {
   let ids: string[] = []
@@ -69,6 +86,11 @@ export function createOrder(): PromptOrder {
       announced.add(id)
       const waiting = queued.indexOf(normalize(text))
       if (waiting !== -1) queued.splice(waiting, 1)
+    },
+    command(id, line) {
+      const waiting = queued.indexOf(normalize(line))
+      if (waiting !== -1) queued.splice(waiting, 1)
+      if (!removed.has(id) && !ids.includes(id)) ids.push(id)
     },
     has(id) {
       return ids.includes(id)
